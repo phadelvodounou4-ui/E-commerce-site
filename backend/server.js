@@ -96,3 +96,16 @@ app.post('/api/v1/auth/register', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// Route produit unique
+app.get('/api/v1/products/:id', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM products WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ status: 'fail', message: 'Produit non trouvé' });
+    }
+    res.json({ status: 'success', data: { product: result.rows[0] } });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
