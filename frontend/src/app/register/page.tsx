@@ -8,7 +8,7 @@ export default function RegisterPage() {
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true);
     try { await register(formData); window.location.href = '/'; } catch {}
     finally { setLoading(false); }
