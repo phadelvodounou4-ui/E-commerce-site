@@ -7,16 +7,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Connexion PostgreSQL
 const pool = new Pool({
-  connectionString: 'postgresql://ecommerce_db_awz7_user:s5DHzhPcNlVHgytqdTUoewmOpffPyCEe@dpg-d939816h2hms738cejsg-a/ecommerce_db_awz7',
+  connectionString: process.env.DATABASE_URL || 'postgresql://ecommerce_db_awz7_user:s5DHzhPcNlVHgytqdTUoewmOpffPyCEe@dpg-d939816h2hms738cejsg-a/ecommerce_db_awz7',
   ssl: { rejectUnauthorized: false }
 });
 
-// Créer les tables si elles n'existent pas
 async function initDB() {
+  // Supprimer l'ancienne table et la recréer
+  await pool.query('DROP TABLE IF EXISTS products');
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS products (
+    CREATE TABLE products (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
       price DECIMAL(10,2) NOT NULL,
@@ -26,19 +26,16 @@ async function initDB() {
     )
   `);
   
-  // Ajouter des produits si la table est vide
-  const count = await pool.query('SELECT COUNT(*) FROM products');
-  if (parseInt(count.rows[0].count) === 0) {
-    await pool.query(`
-      INSERT INTO products (name, price, description, image, stock) VALUES
-      ('Écouteurs Bluetooth', 29.99, 'Sans fil, autonomie 20h', 'https://picsum.photos/200', 50),
-      ('Montre connectée', 59.99, 'Cardio, GPS, étanche', 'https://picsum.photos/201', 30),
-      ('Chargeur USB-C', 19.99, 'Compatible tous appareils', 'https://picsum.photos/202', 100)
-    `);
-  }
-
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS users (
+    INSERT INTO products (name, price, description, image, stock) VALUES
+    ('Écouteurs Bluetooth', 29.99, 'Sans fil, autonomie 20h', 'https://picsum.photos/200', 50),
+    ('Montre connectée', 59.99, 'Cardio, GPS, étanche', 'https://picsum.photos/201', 30),
+    ('Chargeur USB-C', 19.99, 'Compatible tous appareils', 'https://picsum.photos/202', 100)
+  `);
+
+  await pool.query('DROP TABLE IF EXISTS users');
+  await pool.query(`
+    CREATE TABLE users (
       id SERIAL PRIMARY KEY,
       email VARCHAR(255) UNIQUE NOT NULL,
       password VARCHAR(255) NOT NULL,
@@ -48,21 +45,16 @@ async function initDB() {
     )
   `);
   
-  // Ajouter un admin si la table est vide
-  const userCount = await pool.query('SELECT COUNT(*) FROM users');
-  if (parseInt(userCount.rows[0].count) === 0) {
-    await pool.query(
-      "INSERT INTO users (email, password, first_name, role) VALUES ($1, $2, $3, $4)",
-      ['admin@shop.com', '123456', 'Admin', 'admin']
-    );
-  }
+  await pool.query(
+    "INSERT INTO users (email, password, first_name, role) VALUES ($1, $2, $3, $4)",
+    ['admin@shop.com', '123456', 'Admin', 'admin']
+  );
   
   console.log('Base de données initialisée');
 }
 
 initDB().catch(console.error);
 
-// Routes
 app.get('/', (req, res) => res.json({ status: 'success', message: 'API is running' }));
 
 app.get('/api/v1/products', async (req, res) => {
@@ -96,8 +88,7 @@ app.post('/api/v1/auth/register', async (req, res) => {
       'INSERT INTO users (email, password, first_name, last_name) VALUES ($1, $2, $3, $4) RETURNING *',
       [email, password, firstName, lastName]
     );
-    const user = result.rows[0];
-    res.status(201).json({ status: 'success', message: 'Account created', data: { user: { id: user.id, email: user.email, firstName: user.first_name }, token: 'fake-token-456' } });
+    res.status(201).json({ status: 'success', data: { user: { id: result.rows[0].id, email: result.rows[0].email } } });
   } catch (err) {
     res.status(400).json({ status: 'fail', message: 'Email already exists' });
   }
