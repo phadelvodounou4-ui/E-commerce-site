@@ -23,7 +23,7 @@ const Product = sequelize.define('Product', {
   hooks: {
     beforeValidate: (product) => { if (product.name && !product.slug) product.slug = slugify(product.name, { lower: true, strict: true }) + '-' + Date.now().toString(36); },
   },
-  indexes: [{ fields: ['categoryId'] }, { fields: ['sellerId'] }, { fields: ['status'] }, { fields: ['price'] }, { fields: ['slug'] }],
+  indexes: [{ fields: ['category_id'] }, { fields: ['seller_id'] }, { fields: ['status'] }, { fields: ['price'] }, { fields: ['slug'] }],
 });
 
 module.exports = Product;
