@@ -1,0 +1,10 @@
+const router = require('express').Router();
+const { body } = require('express-validator');
+const productController = require('../controllers/product.controller');
+const { protect, restrictTo, optionalAuth } = require('../middleware/auth.middleware');
+router.get('/', optionalAuth, productController.getProducts);
+router.get('/:slug', optionalAuth, productController.getProduct);
+router.post('/', protect, restrictTo('seller', 'admin'), [body('name').notEmpty(), body('price').isFloat({ min: 0 }), body('stockQuantity').isInt({ min: 0 })], productController.createProduct);
+router.patch('/:id', protect, restrictTo('seller', 'admin'), productController.updateProduct);
+router.delete('/:id', protect, restrictTo('seller', 'admin'), productController.deleteProduct);
+module.exports = router;
