@@ -29,7 +29,7 @@ const pool = new Pool({
 });
 
 const authMiddleware = function(req, res, next) {
-  const token = req.headers.authorization && req.headers.authorization.split(' ')[1];
+  var token = req.headers.authorization && req.headers.authorization.split(' ')[1];
   if (!token) return res.status(401).json({ status: 'fail', message: 'Non autorisé' });
   try {
     var decoded = jwt.verify(token, JWT_SECRET);
@@ -41,22 +41,34 @@ const authMiddleware = function(req, res, next) {
 };
 
 async function initDB() {
+  await pool.query('DROP TABLE IF EXISTS messages');
   await pool.query('DROP TABLE IF EXISTS cart_items');
   await pool.query('DROP TABLE IF EXISTS products');
   await pool.query('DROP TABLE IF EXISTS users');
+
   await pool.query('CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, price DECIMAL(10,2) NOT NULL, description TEXT, image TEXT, stock INTEGER DEFAULT 1, category VARCHAR(100), location VARCHAR(255), seller_id INTEGER, seller_name VARCHAR(255), created_at TIMESTAMP DEFAULT NOW())');
   await pool.query('CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, first_name VARCHAR(100), last_name VARCHAR(100), phone VARCHAR(50), city VARCHAR(255), avatar TEXT, role VARCHAR(20) DEFAULT \'customer\')');
   await pool.query('CREATE TABLE cart_items (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id), product_id INTEGER REFERENCES products(id), quantity INTEGER DEFAULT 1)');
+  await pool.query('CREATE TABLE messages (id SERIAL PRIMARY KEY, product_id INTEGER REFERENCES products(id), sender_id INTEGER REFERENCES users(id), receiver_id INTEGER REFERENCES users(id), content TEXT NOT NULL, created_at TIMESTAMP DEFAULT NOW())');
+
   var hash = await bcrypt.hash('123456', 10);
   await pool.query('INSERT INTO users (email, password, first_name, role) VALUES ($1,$2,$3,$4)', ['admin@shop.com', hash, 'Admin', 'admin']);
   console.log('Base de données initialisée');
 }
 initDB().catch(console.error);
 
+// === ROUTES ===
+
 app.get('/', function(req, res) { res.json({ status: 'success' }); });
 
 app.get('/api/v1/products', async function(req, res) {
-  var result = await pool.query('SELECT * FROM products ORDER BY created_at DESC');
+  var query = 'SELECT * FROM products WHERE 1=1';
+  var params = [];
+  if (req.query.search) { params.push('%' + req.query.search + '%'); query += ' AND name ILIKE $' + params.length; }
+  if (req.query.category) { params.push(req.query.category); query += ' AND category = $' + params.length; }
+  if (req.query.location) { params.push('%' + req.query.location + '%'); query += ' AND location ILIKE $' + params.length; }
+  query += ' ORDER BY created_at DESC';
+  var result = await pool.query(query, params);
   res.json({ status: 'success', data: { products: result.rows } });
 });
 
@@ -66,16 +78,11 @@ app.get('/api/v1/products/:id', async function(req, res) {
   res.json({ status: 'success', data: { product: result.rows[0] } });
 });
 
+// Auth
 app.post('/api/v1/auth/register', async function(req, res) {
-  var email = req.body.email;
-  var password = req.body.password;
-  var firstName = req.body.firstName;
-  var lastName = req.body.lastName;
-  var phone = req.body.phone;
-  var city = req.body.city;
   try {
-    var hash = await bcrypt.hash(password, 10);
-    var result = await pool.query('INSERT INTO users (email, password, first_name, last_name, phone, city) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, email, first_name, last_name, role', [email, hash, firstName, lastName, phone, city]);
+    var hash = await bcrypt.hash(req.body.password, 10);
+    var result = await pool.query('INSERT INTO users (email, password, first_name, last_name, phone, city) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, email, first_name, last_name, role', [req.body.email, hash, req.body.firstName, req.body.lastName, req.body.phone, req.body.city]);
     var user = result.rows[0];
     var token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
     res.status(201).json({ status: 'success', data: { user: user, token: token } });
@@ -86,12 +93,10 @@ app.post('/api/v1/auth/register', async function(req, res) {
 });
 
 app.post('/api/v1/auth/login', async function(req, res) {
-  var email = req.body.email;
-  var password = req.body.password;
-  var result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+  var result = await pool.query('SELECT * FROM users WHERE email = $1', [req.body.email]);
   if (result.rows.length === 0) return res.status(401).json({ status: 'fail', message: 'Identifiants incorrects' });
   var user = result.rows[0];
-  var valid = await bcrypt.compare(password, user.password);
+  var valid = await bcrypt.compare(req.body.password, user.password);
   if (!valid) return res.status(401).json({ status: 'fail', message: 'Identifiants incorrects' });
   var token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ status: 'success', data: { user: { id: user.id, email: user.email, first_name: user.first_name, last_name: user.last_name, role: user.role, phone: user.phone, city: user.city }, token: token } });
@@ -102,20 +107,13 @@ app.get('/api/v1/auth/me', authMiddleware, async function(req, res) {
   res.json({ status: 'success', data: { user: result.rows[0] } });
 });
 
+// Produits
 app.post('/api/v1/products', authMiddleware, upload.single('image'), async function(req, res) {
   try {
-    var name = req.body.name;
-    var price = req.body.price;
-    var description = req.body.description;
-    var category = req.body.category;
-    var location = req.body.location;
-    var sellerName = req.user.email;
     var imageUrl = req.file ? req.file.path : null;
-    var result = await pool.query('INSERT INTO products (name, price, description, image, category, location, seller_id, seller_name) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *', [name, price, description, imageUrl, category, location, req.user.id, sellerName]);
+    var result = await pool.query('INSERT INTO products (name, price, description, image, category, location, seller_id, seller_name) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *', [req.body.name, req.body.price, req.body.description, imageUrl, req.body.category, req.body.location, req.user.id, req.user.email]);
     res.status(201).json({ status: 'success', data: { product: result.rows[0] } });
-  } catch (err) {
-    res.status(500).json({ status: 'error', message: err.message });
-  }
+  } catch (err) { res.status(500).json({ status: 'error' }); }
 });
 
 app.get('/api/v1/users/:id/products', async function(req, res) {
@@ -123,6 +121,24 @@ app.get('/api/v1/users/:id/products', async function(req, res) {
   res.json({ status: 'success', data: { products: result.rows } });
 });
 
+// Messages / Chat
+app.get('/api/v1/messages/:productId', authMiddleware, async function(req, res) {
+  var result = await pool.query(
+    'SELECT m.*, u.first_name as sender_name FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.product_id = $1 AND (m.sender_id = $2 OR m.receiver_id = $2) ORDER BY m.created_at ASC',
+    [req.params.productId, req.user.id]
+  );
+  res.json({ status: 'success', data: { messages: result.rows } });
+});
+
+app.post('/api/v1/messages', authMiddleware, async function(req, res) {
+  var result = await pool.query(
+    'INSERT INTO messages (product_id, sender_id, receiver_id, content) VALUES ($1,$2,$3,$4) RETURNING *',
+    [req.body.product_id, req.user.id, req.body.receiver_id, req.body.content]
+  );
+  res.status(201).json({ status: 'success', data: { message: result.rows[0] } });
+});
+
+// Panier
 app.get('/api/v1/cart', async function(req, res) {
   var result = await pool.query('SELECT c.*, p.name, p.price, p.image FROM cart_items c JOIN products p ON c.product_id = p.id');
   var total = result.rows.reduce(function(s, i) { return s + parseFloat(i.price) * i.quantity; }, 0);
@@ -130,10 +146,9 @@ app.get('/api/v1/cart', async function(req, res) {
 });
 
 app.post('/api/v1/cart', async function(req, res) {
-  var productId = req.body.productId;
-  var e = await pool.query('SELECT * FROM cart_items WHERE product_id = $1', [productId]);
-  if (e.rows.length > 0) await pool.query('UPDATE cart_items SET quantity = quantity + 1 WHERE product_id = $1', [productId]);
-  else await pool.query('INSERT INTO cart_items (user_id, product_id, quantity) VALUES (1, $1, 1)', [productId]);
+  var e = await pool.query('SELECT * FROM cart_items WHERE product_id = $1', [req.body.productId]);
+  if (e.rows.length > 0) await pool.query('UPDATE cart_items SET quantity = quantity + 1 WHERE product_id = $1', [req.body.productId]);
+  else await pool.query('INSERT INTO cart_items (user_id, product_id, quantity) VALUES (1, $1, 1)', [req.body.productId]);
   res.json({ status: 'success' });
 });
 
@@ -142,6 +157,7 @@ app.delete('/api/v1/cart/:id', async function(req, res) {
   res.json({ status: 'success' });
 });
 
+// Admin
 app.get('/api/v1/admin/products', authMiddleware, async function(req, res) {
   if (req.user.role !== 'admin') return res.status(403).json({ status: 'fail' });
   var result = await pool.query('SELECT * FROM products ORDER BY created_at DESC');
