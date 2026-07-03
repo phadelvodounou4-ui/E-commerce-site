@@ -1,24 +1,42 @@
 'use client';
-import { useProducts } from '@/hooks/useProducts';
-import { ProductCard } from '@/components/ProductCard';
-import { ProductFilters } from '@/components/ProductFilters';
-import { Pagination } from '@/components/Pagination';
-import { Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import axios from 'axios';
+
+const API = 'https://ecommerce-backend-b0po.onrender.com/api/v1';
+
 export default function ProductsPage() {
-  const { products, loading, pagination, filters, updateFilters } = useProducts();
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    axios.get(`${API}/products`).then(res => { setProducts(res.data.data.products); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex flex-col lg:flex-row gap-8">
-        <aside className="lg:w-64"><ProductFilters filters={filters} onChange={updateFilters} /></aside>
-        <div className="flex-1">
-          <div className="flex justify-between mb-6"><h1 className="text-2xl font-bold">All Products</h1><span>{pagination.total} results</span></div>
-          {loading ? <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin" /></div> : (
-            <><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">{products.map((p: any) => <ProductCard key={p.id} product={p} />)}</div>
-              {products.length === 0 && <p className="text-center py-20 text-gray-500">No products found</p>}
-              <Pagination pagination={pagination} onPageChange={(page: number) => updateFilters({ page })} />
-            </>
-          )}
+    <div className="min-h-screen bg-[#f0f2f5]" style={{ fontFamily: 'system-ui, sans-serif' }}>
+      <nav className="sticky top-0 z-30 bg-white border-b border-black/[0.08]">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="text-xl font-bold text-[#1877F2]">Marché<span className="text-[#1c1e21]">Direct</span></Link>
+          <Link href="/" className="text-sm font-semibold text-[#1877F2] hover:underline">← Retour</Link>
         </div>
+      </nav>
+      <div className="max-w-6xl mx-auto px-6 py-10">
+        <h1 className="text-2xl font-extrabold mb-6">Tous les produits</h1>
+        {loading ? <p className="text-[#606770]">Chargement...</p> : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+            {products.map((p: any) => (
+              <Link key={p.id} href={`/products/${p.id}`} className="group bg-white rounded-xl border border-black/[0.08] overflow-hidden hover:shadow-lg transition-shadow no-underline">
+                <div className="aspect-square bg-[#f0f2f5] flex items-center justify-center text-7xl group-hover:scale-105 transition-transform">{p.image || '🛒'}</div>
+                <div className="p-4">
+                  <h3 className="font-semibold text-sm mb-1 text-[#1c1e21] truncate">{p.name}</h3>
+                  <p className="text-xs text-[#606770] mb-2">{p.description?.substring(0, 60)}...</p>
+                  <span className="text-lg font-extrabold text-[#1c1e21]">{parseFloat(p.price).toFixed(2)} €</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,89 +1,45 @@
 'use client';
-import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Star, ShoppingCart, ArrowLeft } from 'lucide-react';
+
+const produits: any = {
+  '1': { id: 1, nom: 'Montre Héritage', prix: '289 000', ancienPrix: '340 000', emoji: '⌚', etoiles: 5, avis: 128, description: 'Montre de luxe avec bracelet en cuir véritable. Mouvement automatique suisse.' },
+  '2': { id: 2, nom: 'Sac Atelier Noir', prix: '154 500', ancienPrix: '189 000', emoji: '👜', etoiles: 4, avis: 76, description: 'Sac en cuir pleine fleur fabriqué à la main. Finitions dorées.' },
+  '3': { id: 3, nom: 'Parfum Ombre Dorée', prix: '78 900', emoji: '🧴', etoiles: 5, avis: 214, description: 'Eau de parfum aux notes boisées et ambrées. Flacon en verre taillé.' },
+};
 
 export default function ProductPage() {
   const params = useParams();
   const id = params?.id as string;
-  const [product, setProduct] = useState<any>(null);
+  const p = produits[id];
 
-  useEffect(() => {
-    // Données en dur pour éviter les erreurs API
-    const products: any = {
-      '1': { id: 1, name: 'Écouteurs Bluetooth', price: '29.99', description: 'Sans fil, autonomie 20h, son cristallin. Parfait pour le sport et les appels.', stock: 50, emoji: '🎧' },
-      '2': { id: 2, name: 'Montre Connectée', price: '59.99', description: 'Cardio, GPS, étanche, notifications. Suivez votre activité au quotidien.', stock: 30, emoji: '⌚' },
-      '3': { id: 3, name: 'Chargeur USB-C Rapide', price: '19.99', description: 'Compatible tous appareils. Charge rapide 65W avec câble inclus.', stock: 100, emoji: '🔌' },
-    };
-    setProduct(products[id] || null);
-  }, [id]);
-
-  if (!product) {
-    return (
-      <div style={{ textAlign: 'center', padding: '80px 20px', fontFamily: 'system-ui, sans-serif' }}>
-        <h1 style={{ fontSize: '48px', marginBottom: '10px' }}>😕</h1>
-        <h2>Produit non trouvé</h2>
-        <p style={{ color: '#64748b', marginBottom: '20px' }}>Ce produit n'existe pas ou a été supprimé.</p>
-        <Link href="/" style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: '600' }}>← Retour à l'accueil</Link>
-      </div>
-    );
-  }
+  if (!p) return <div className="min-h-screen bg-[#f0f2f5] flex items-center justify-center"><p>Produit non trouvé</p></div>;
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '40px 20px', fontFamily: 'system-ui, sans-serif' }}>
-      
-      <div style={{ marginBottom: '20px' }}>
-        <Link href="/" style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <ArrowLeft size={16} /> Retour à l'accueil
-        </Link>
-      </div>
-
-      <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
-        
-        {/* Image */}
-        <div style={{
-          flex: '1 1 350px', background: 'linear-gradient(135deg, #f0f9ff, #e0f2fe)',
-          borderRadius: '24px', height: '380px', minWidth: '280px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '120px'
-        }}>
-          {product.emoji}
+    <div className="min-h-screen bg-[#f0f2f5]" style={{ fontFamily: 'system-ui, sans-serif' }}>
+      <nav className="sticky top-0 z-30 bg-white border-b border-black/[0.08]">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="text-xl font-bold text-[#1877F2]">Marché<span className="text-[#1c1e21]">Direct</span></Link>
+          <Link href="/products" className="text-sm font-semibold text-[#1877F2] hover:underline">← Retour</Link>
         </div>
-
-        {/* Infos */}
-        <div style={{ flex: '1 1 350px', minWidth: '280px' }}>
-          <div style={{ display: 'inline-block', background: '#dcfce7', color: '#166534', padding: '4px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', marginBottom: '15px' }}>
-            ✅ En stock ({product.stock} disponibles)
-          </div>
-
-          <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#1e293b', marginBottom: '10px' }}>{product.name}</h1>
-          
-          <div style={{ display: 'flex', gap: '3px', marginBottom: '15px' }}>
-            {[...Array(5)].map((_, i) => <Star key={i} size={18} fill="#f59e0b" color="#f59e0b" />)}
-            <span style={{ color: '#64748b', marginLeft: '8px', fontSize: '14px' }}>4.8 (128 avis)</span>
-          </div>
-
-          <p style={{ color: '#64748b', fontSize: '15px', lineHeight: 1.7, marginBottom: '20px' }}>{product.description}</p>
-
-          <div style={{ fontSize: '34px', fontWeight: '800', marginBottom: '25px' }}>
-            {parseFloat(product.price).toFixed(2)} €
-            <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: '400', marginLeft: '8px' }}>TTC</span>
-          </div>
-
-          <button style={{
-            width: '100%', background: '#1e293b', color: 'white', border: 'none',
-            padding: '16px', borderRadius: '14px', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-            fontWeight: '700', fontSize: '16px', marginBottom: '25px'
-          }}>
-            <ShoppingCart size={20} /> Ajouter au panier
-          </button>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
-            {['🚚 Livraison gratuite', '🔒 Paiement sécurisé', '🔄 Retour 30 jours'].map((text, i) => (
-              <div key={i} style={{ textAlign: 'center', fontSize: '12px', color: '#64748b', fontWeight: '600' }}>{text}</div>
+      </nav>
+      <div className="max-w-6xl mx-auto px-6 py-10 grid grid-cols-1 md:grid-cols-2 gap-10">
+        <div className="rounded-2xl bg-white border border-black/[0.08] aspect-square flex items-center justify-center text-9xl">{p.emoji}</div>
+        <div>
+          <span className="inline-block px-3 py-1 rounded-full bg-[#e7f0ff] text-[#1877F2] text-xs font-semibold mb-4">En stock</span>
+          <h1 className="text-3xl font-extrabold mb-4">{p.nom}</h1>
+          <div className="flex items-center gap-1 mb-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <svg key={i} viewBox="0 0 20 20" className={`w-4 h-4 ${i < p.etoiles ? 'fill-[#f5a623]' : 'fill-black/10'}`}><path d="M10 1.5l2.6 5.4 5.9.8-4.3 4.2 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.2 5.9-.8z" /></svg>
             ))}
+            <span className="text-sm text-[#606770] ml-1">({p.avis} avis)</span>
           </div>
+          <p className="text-[#606770] mb-6">{p.description}</p>
+          <div className="flex items-baseline gap-2 mb-6">
+            <span className="text-3xl font-extrabold">{p.prix} FCFA</span>
+            {p.ancienPrix && <span className="text-lg text-[#606770] line-through">{p.ancienPrix} FCFA</span>}
+          </div>
+          <button className="w-full py-3 rounded-lg bg-[#1877F2] text-white font-semibold hover:bg-[#166fe0] transition-colors">Ajouter au panier</button>
         </div>
       </div>
     </div>
